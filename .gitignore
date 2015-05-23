@@ -1,3 +1,8 @@
 .Rproj.user
 .Rhistory
 .RData
+rfmodelfull.rds
+rfmodel-training3.rds
+rfmodel-training2.rds
+rfmodel-no-num_window.rds
+rfmodel-no-num_window-no-user_name.rds
