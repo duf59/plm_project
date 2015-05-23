@@ -1,0 +1,207 @@
+---
+title: "Detecting Execution Mistakes in Weight Lifting Exercises Using On-body sensing and Machine Learning"
+author: "Renaud Dufour"
+date: "May, 2015"
+output: html_document
+---
+
+# Introduction
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of 
+data about personal activity relatively inexpensively. These type of devices are part of the quantified self
+movement – a group of enthusiasts who take measurements about themselves regularly to improve their
+health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do
+is quantify how much of a particular activity they do, but they rarely quantify how well they do it.
+In this project, we use data from accelerometers on the belt, forearm, arm, and dumbell of 6
+participants. They were asked to perform perform one set of 10 repetitions of the Unilateral Dumbbell Biceps Curl in five different fashions:
+
+* exactly according to the specification (Class A)
+* throwing the elbows to the front (Class B)
+* lifting the dumbbell only halfway (Class C)
+* lowering the dumbbell only halfway (Class D)
+* throwing the hips to the front (Class E)
+
+Class A corresponds to the specified execution of the exercise, while the other 4 classes correspond to common mistakes.
+More information is available from the website [here](http://groupware.les.inf.puc-rio.br/har]) (see the section on the Weight Lifting Exercise Dataset).
+
+Goal of the project is to predict the manner in which people did the exercise ("classe" variable).
+
+# Data
+
+The dataset provided can be obtained from my [Github Repo](https://github.com/duf59/plm_project) in the source_data/ folder.
+It is composed of two files : 
+
+* pml-training.csv : a training set containing 19622 observations of 160 variables including the dependent variable "classe".
+* pml-testing.csv : the validation set containing 20 observations of 159 variables for which the "classe" is to be predicted.
+
+We first load these two datasets :
+
+```{r load data}
+data <- read.csv("./source_data/pml-training.csv", na.string = c(NA,""))
+validation  <- read.csv("./source_data/pml-testing.csv", na.string = c(NA,""))
+```
+
+# Preprocessing
+
+A summary of the dataset reveals that out of the 159 predictors, 100 present 98% of missing values in the *data* dataset (same predictors present 100% missing values in the *validation* dataset). These predictors are removed :
+
+```{r remove NA}
+idx1 <- which(sapply(data,function(x) sum(is.na(x))/nrow(data))>0.95)
+data <- data[,-idx1]
+```
+
+Among the 59 predictors left, We remove *X* which corresponds to the row number.
+Besides, the purpose being to predict the *classe* outcome from the sensors informations,
+we do not use predictors related to time and date:
+
+```{r remove time variables}
+data <- subset(data, select=-c(X,raw_timestamp_part_1,raw_timestamp_part_2,cvtd_timestamp,new_window,num_window))
+```
+
+These preprocessing steps lead to the following 53 predictors (for more details about their meaning refer to the [original website](http://groupware.les.inf.puc-rio.br/har]) and related informations):
+
+```{r display initial predictors}
+names(data)
+```
+
+We then look at the correlation Matrix. Below we print the number of strong correlations (>0.80) for each predictor (not including autocorrelation):
+
+```{r find correlated variables}
+corMatrix <- abs(cor(subset(data, select=-c(user_name,classe))))>.8
+diag(corMatrix) <- FALSE # do not take into account autocorrelations
+colSums(corMatrix)       # display number of high correlation for each variable
+```
+
+For threshold of 0.80, looking more clesely at the correlation matrix reveals the following strong pairwise correlations:
+
+* *total_accel_belt* with *accel_belt_y* and *accel_belt_z* (last 2 also correlated)
+* *magnet_belt_x* with *accel_belt_x* and *pitch_belt* (last 2 also correlated)
+* *gyro_arm_x* with *gyro_arm_y*
+* *magnet_arm_x* with *accel_arm_x*
+* *magnet_arm_y* with *magnet_arm_z*
+* *pitch_dumbbell* with *accel_dumbbell_x*
+* *yaw_dumbdell* with *accel_dumbbell_z*
+* *gyros_forearm_z* with *gyros_forearm_y* and *gyros_dumbbell_z* and *gyros_dumbbell_x* (last 2 also correlated)
+
+A vector of variables to remove to reduce pairwise correlation can also be obtained as follows:
+
+```{r flag correlated variables}
+library(caret)
+flags <- findCorrelation(cor(subset(data, select=-c(user_name,classe))),cutoff = .80)
+names(subset(data, select=-c(user_name,classe)))[flags]
+```
+
+Which confirms the previous observations.
+
+# Machine learning
+
+Before training a model, we split the data into a training and testing sets.
+The training set is to be used for training the model while the testing set will be use to provide an unbiased estimate
+of the model accuracy.
+Note that we do not use here the validation set of 20 observations because these predictions are to be uploaded on Coursera for project grading.
+
+Splitting is done as folows (ratio 75/25):
+
+```{r split}
+set.seed(3764) # for reproducibility
+inTrain<- createDataPartition(data$classe, p = 0.75, list = FALSE)
+training <- data[inTrain,]
+testing  <- data[-inTrain,]
+```
+
+## Random forest model using all predictors
+
+We train a random forest on the training set, keeping all 53 predictors.
+10-fold cross validation error is used along with different values of the mtry parameter (number of variables allowed for each split):
+
+```{r randomForest fit, eval=FALSE}
+# code not evaluated in Markdown
+# takes about 40 minutes to run on intel core i5-4200U and 8Gb Ram.
+numFolds <- trainControl(method = "cv", number = 10)
+rffit    <- train(classe ~ ., method="rf", data=training, trControl = numFolds)
+```
+```{r load rf model, echo=FALSE}
+# read saved random forest model
+rffit <- readRDS(file = "rfmodel-no-num_window.rds")
+```
+```{r print rf model}
+# read saved random forest model
+rffit
+```
+
+The best RF is obtained for mtry=29, leading to a CV accuracy of 99.2%.
+Plot below shows the variable importance (top 10 predictors):
+
+```{r varImpr}
+library(randomForest)
+varImpPlot(rffit$finalModel, n.var = 10, main = "Random Forest Model - top 10 predictors")
+```
+
+We then apply the model on the hold out testing set in order to estimate the model accuracy:
+
+```{r randomForest evaluation}
+testPred <- predict(rffit, newdata = testing)
+confusionMatrix(testPred,testing$classe)
+```
+
+The estimated model accuracy on the testing set is 0.993 (error rate 0.007).
+This is consistent with the CV accuracy meaning we are not overfitting the training set.
+
+The model was then applied to the 20 observations of the validation set (result not shown here because subject to the Coursera Honor Code.)
+
+## Random forest model using 9 predictors
+
+The variable importance of the previous model, along with the pairwise correlations discused previously, suggest that not all predictors are necessary to perform a proper prediction on this dataset. Therefore, considering correlations and variable importance, the number of predictors was iteratively decreased until the following training set was obtained:
+
+```{r small dataset}
+training2 <- subset(training, select=-c(user_name,
+                                        gyros_forearm_x,gyros_forearm_y,gyros_forearm_z,
+                                        gyros_arm_x,gyros_arm_y,gyros_arm_z,
+                                        gyros_dumbbell_x,gyros_dumbbell_y,gyros_dumbbell_z,
+                                        gyros_belt_x,gyros_belt_y,gyros_belt_z,
+                                        yaw_dumbbell, pitch_dumbbell,
+                                        magnet_arm_x, magnet_arm_y, magnet_arm_z,
+                                        pitch_arm,
+                                        yaw_forearm,
+                                        accel_arm_x, accel_arm_y, accel_arm_z,
+                                        total_accel_forearm, total_accel_arm, total_accel_belt, total_accel_dumbbell,
+                                        accel_belt_x,accel_belt_y,accel_belt_z,
+                                        accel_forearm_x,accel_forearm_y,accel_forearm_z,
+                                        magnet_forearm_x,magnet_forearm_y,magnet_forearm_z,
+                                        accel_dumbbell_x, accel_dumbbell_y, accel_dumbbell_z,
+                                        magnet_belt_x, magnet_belt_y, magnet_belt_z,
+                                        yaw_arm, roll_arm))
+
+```
+
+Remaining predictors are :
+
+```{r}
+names(training2)
+```
+
+Then train a random forest using these predictors :
+
+```{r randomForest small dataset, eval=FALSE}
+# code not run in Markdown - takes about 15min
+numFolds <- trainControl( method = "cv", number = 10)
+cpGrid   <- expand.grid( .mtry = seq(3,10,by = 1))
+rffit2   <- train(classe ~ ., method="rf", data=training2, trControl = numFolds, tuneGrid = cpGrid)
+```
+```{r load rf model small dataset, echo=FALSE}
+# read saved random forest model
+rffit2 <- readRDS("rfmodel-training3.rds")
+```
+```{r print rf model small dataset}
+# read saved random forest model
+rffit2
+```
+
+This model achieves 0.985 CV accuracy for mtry=3, which is confirmed by predicting on the held out testing set:
+
+```{r randomForest evaluation small dataset}
+testPred <- predict(rffit2, newdata = testing)
+confusionMatrix(testPred,testing$classe)
+```
+
+Note that this model with only 9 predictors exhibit the same accuracy in predicting the 20 observations of the validation set.
