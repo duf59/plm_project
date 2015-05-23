@@ -22,10 +22,9 @@ More information is available from the website [here](http://groupware.les.inf.p
 
 Goal of the project is to predict the manner in which people did the exercise ("classe" variable).
 
-# Algorithm
+# Result
 
-
-
+A random forest was used to predict the manner in which people did the exercise. Two models were developped: a first one based on 53 predictors (out of 159) achieving an accuracy of 99.3% and a second one based on 9 most relevant predictors achieving a 98.5% accuracy. Both models predicted correctly the 20 observations of the validation set (used for project grading). Details regarding data preprocessing, modelling and validation can be found in the Final_Report.Rmd file.
 
 # Reference
 
