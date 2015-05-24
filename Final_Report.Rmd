@@ -100,7 +100,7 @@ The training set is to be used for training the model while the testing set will
 of the model accuracy.
 Note that we do not use here the validation set of 20 observations because these predictions are to be uploaded on Coursera for project grading.
 
-Splitting is done as folows (ratio 75/25):
+Splitting is done as follows (ratio 75/25):
 
 ```{r split}
 set.seed(3764) # for reproducibility
@@ -112,27 +112,25 @@ testing  <- data[-inTrain,]
 ## Random forest model using all predictors
 
 We train a random forest on the training set, keeping all 53 predictors.
-10-fold cross validation error is used along with different values of the mtry parameter (number of variables allowed for each split):
+10-fold cross validation is used along with different values of the mtry parameter (number of variables allowed for each split):
 
 ```{r randomForest fit, eval=FALSE}
-# code not evaluated in Markdown
 # takes about 40 minutes to run on intel core i5-4200U and 8Gb Ram.
 numFolds <- trainControl(method = "cv", number = 10)
 rffit    <- train(classe ~ ., method="rf", data=training, trControl = numFolds)
 ```
-```{r load rf model, echo=FALSE}
+```{r load rf model, echo=FALSE, include=FALSE}
 # read saved random forest model
 rffit <- readRDS(file = "rfmodel-no-num_window.rds")
 ```
 ```{r print rf model}
-# read saved random forest model
 rffit
 ```
 
-The best RF is obtained for mtry=29, leading to a CV accuracy of 99.2%.
+The best model is obtained for mtry = 29, leading to a CV accuracy of 99.2%.
 Plot below shows the variable importance (top 10 predictors):
 
-```{r varImpr}
+```{r varImpr, message=FALSE}
 library(randomForest)
 varImpPlot(rffit$finalModel, n.var = 10, main = "Random Forest Model - top 10 predictors")
 ```
@@ -154,57 +152,33 @@ The model was then applied to the 20 observations of the validation set (result 
 The variable importance of the previous model, along with the pairwise correlations discused previously, suggest that not all predictors are necessary to perform a proper prediction on this dataset. Therefore, considering correlations and variable importance, the number of predictors was iteratively decreased until the following training set was obtained:
 
 ```{r small dataset}
-training2 <- subset(training, select=-c(user_name,
-                                        gyros_forearm_x,gyros_forearm_y,gyros_forearm_z,
-                                        gyros_arm_x,gyros_arm_y,gyros_arm_z,
-                                        gyros_dumbbell_x,gyros_dumbbell_y,gyros_dumbbell_z,
-                                        gyros_belt_x,gyros_belt_y,gyros_belt_z,
-                                        yaw_dumbbell, pitch_dumbbell,
-                                        magnet_arm_x, magnet_arm_y, magnet_arm_z,
-                                        pitch_arm,
-                                        yaw_forearm,
-                                        accel_arm_x, accel_arm_y, accel_arm_z,
-                                        total_accel_forearm, total_accel_arm, total_accel_belt, total_accel_dumbbell,
-                                        accel_belt_x,accel_belt_y,accel_belt_z,
-                                        accel_forearm_x,accel_forearm_y,accel_forearm_z,
-                                        magnet_forearm_x,magnet_forearm_y,magnet_forearm_z,
-                                        accel_dumbbell_x, accel_dumbbell_y, accel_dumbbell_z,
-                                        magnet_belt_x, magnet_belt_y, magnet_belt_z,
-                                        yaw_arm, roll_arm))
+training2 <- subset(training, select=-c(roll_belt,pitch_belt,yaw_belt,roll_dumbbell, magnet_dumbbell_x, magnet_dumbbell_y, magnet_dumbbell_z, roll_forearm, pitch_forearm, classe))
 
 ```
 
-Remaining predictors are :
-
-```{r}
-names(training2)
-```
-
-Then train a random forest using these predictors :
+A random forest is again trained with the above predictors (because there are only 9 predictors we here expand the grid for *mtry* parameter.) :
 
 ```{r randomForest small dataset, eval=FALSE}
-# code not run in Markdown - takes about 15min
 numFolds <- trainControl( method = "cv", number = 10)
 cpGrid   <- expand.grid( .mtry = seq(3,10,by = 1))
 rffit2   <- train(classe ~ ., method="rf", data=training2, trControl = numFolds, tuneGrid = cpGrid)
 ```
-```{r load rf model small dataset, echo=FALSE}
+```{r load rf model small dataset, echo=FALSE, include=FALSE}
 # read saved random forest model
 rffit2 <- readRDS("rfmodel-training3.rds")
 ```
 ```{r print rf model small dataset}
-# read saved random forest model
 rffit2
 ```
 
-This model achieves 0.985 CV accuracy for mtry=3, which is confirmed by predicting on the held out testing set:
+This model achieves 0.985 CV accuracy for mtry=3, which is confirmed by predicting on the held out testing set as shown below:
 
 ```{r randomForest evaluation small dataset}
 testPred <- predict(rffit2, newdata = testing)
 confusionMatrix(testPred,testing$classe)
 ```
 
-Note that this model with only 9 predictors exhibit the same accuracy in predicting the 20 observations of the validation set.
+This model with only 9 predictors exhibit like the previous one a 100% accuracy regarding the 20 observations of the validation set. Note that it is possible to keep decreasing the number of predictors while keeping a relatively high accuracy (down to about 3-4 predictors and accuracy > 80%), however the objective here was to find a minimal model able to predict correctly the 20 validation obsevations (i.e. with less than 9 predictors I have not been able to get all of them correct).
 
 # Reference
 
