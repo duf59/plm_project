@@ -1,7 +1,6 @@
-# plm_project
-Practical Machine Learning Course Project
+# Detecting Execution Mistakes in Weight Lifting Exercises Using On-body sensing and Machine Learning
 
-# Description & data
+## Description & data
 
 Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of 
 data about personal activity relatively inexpensively. These type of devices are part of the quantified self
@@ -22,10 +21,12 @@ More information is available from the website [here](http://groupware.les.inf.p
 
 Goal of the project is to predict the manner in which people did the exercise ("classe" variable).
 
-# Result
+## Result
 
 A random forest was used to predict the manner in which people did the exercise. Two models were developped: a first one based on 53 predictors (out of 159) achieving an accuracy of 99.3% and a second one based on 9 most relevant predictors achieving a 98.5% accuracy. Both models predicted correctly the 20 observations of the validation set (used for project grading). Details regarding data preprocessing, modelling and validation can be found in the Final_Report.Rmd file.
 
-# Reference
+Check the final report on [Rpub](https://rpubs.com/duf59/plm_project)
+
+## Reference
 
 * Ugulino, W.; Cardador, D.; Vega, K.; Velloso, E.; Milidiu, R.; Fuks, H. Wearable Computing: Accelerometers' Data Classification of Body Postures and Movements. Proceedings of 21st Brazilian Symposium on Artificial Intelligence. Advances in Artificial Intelligence - SBIA 2012. In: Lecture Notes in Computer Science., pp. 52-61. Curitiba, PR: Springer Berlin / Heidelberg, 2012. ISBN 978-3-642-34458-9. DOI: 10.1007/978-3-642-34459-6_6.
